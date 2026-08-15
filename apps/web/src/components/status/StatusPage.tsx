@@ -224,6 +224,74 @@ function ClaudeRateLimitsCard({
   );
 }
 
+function AntigravityStatusCard({
+  provider,
+  showProviderLabel,
+}: {
+  readonly provider: ServerProvider;
+  readonly showProviderLabel: boolean;
+}) {
+  const antigravityStatus = provider.antigravityStatus;
+  const isInstalled = provider.installed;
+  const accountEmail = antigravityStatus?.account?.email || provider.auth.email;
+  const modelsCount = antigravityStatus?.cli?.modelsCount ?? provider.models.length;
+
+  return (
+    <Card className="rounded-xl border border-border/70 bg-card p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {showProviderLabel ? (
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {provider.displayName ?? "Antigravity"}
+            </span>
+          ) : null}
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+              provider.status === "ready"
+                ? "bg-emerald-500/10 text-emerald-500"
+                : provider.status === "warning"
+                  ? "bg-amber-500/10 text-amber-500"
+                  : "bg-rose-500/10 text-rose-500",
+            )}
+          >
+            {provider.status === "ready" ? "Connected" : provider.status}
+          </span>
+        </div>
+        {provider.version ? (
+          <span className="text-xs text-muted-foreground">v{provider.version}</span>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-border/60 bg-background/35 px-3 py-2.5">
+          <span className="text-xs text-muted-foreground">Account</span>
+          <p className="mt-0.5 text-sm font-medium text-foreground">
+            {accountEmail || "Local CLI Session"}
+          </p>
+        </div>
+
+        <div className="rounded-lg border border-border/60 bg-background/35 px-3 py-2.5">
+          <span className="text-xs text-muted-foreground">Available Models</span>
+          <p className="mt-0.5 text-sm font-medium text-foreground">
+            {modelsCount} {modelsCount === 1 ? "model" : "models"} configured
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>
+          CLI: {antigravityStatus?.cli?.binaryPath || "agy"} (
+          {isInstalled ? "installed" : "not found"})
+        </span>
+        {provider.checkedAt ? (
+          <span>Checked {formatStatusTimestampWithTimeZone(provider.checkedAt)}</span>
+        ) : null}
+      </div>
+    </Card>
+  );
+}
+
 export function StatusPage() {
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const providers = useAtomValue(primaryServerProvidersAtom);
@@ -240,10 +308,17 @@ export function StatusPage() {
     () => providers.filter((provider) => provider.driver === "claudeAgent"),
     [providers],
   );
+  const antigravityProviders = useMemo(
+    () => providers.filter((provider) => provider.driver === "antigravity"),
+    [providers],
+  );
   const statusProviders = useMemo(
     () =>
       providers.filter(
-        (provider) => provider.driver === "codex" || provider.driver === "claudeAgent",
+        (provider) =>
+          provider.driver === "codex" ||
+          provider.driver === "claudeAgent" ||
+          provider.driver === "antigravity",
       ),
     [providers],
   );
@@ -393,6 +468,31 @@ export function StatusPage() {
                 View up-to-date usage and rate limits
                 <ExternalLinkIcon className="size-3" />
               </a>
+            </section>
+
+            <section className="flex flex-col gap-3">
+              <div>
+                <h2 className="text-base font-medium text-foreground">Antigravity</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Google Antigravity CLI status, account, and active model access.
+                </p>
+              </div>
+              {antigravityProviders.length === 0 ? (
+                <StatusEmptyState
+                  title="Antigravity is not configured"
+                  description="Add or enable the Antigravity provider in Settings to inspect its status here."
+                />
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {antigravityProviders.map((provider) => (
+                    <AntigravityStatusCard
+                      key={provider.instanceId}
+                      provider={provider}
+                      showProviderLabel={antigravityProviders.length > 1}
+                    />
+                  ))}
+                </div>
+              )}
             </section>
           </div>
         </ScrollArea>

@@ -344,6 +344,21 @@ export const checkAntigravityProviderStatus = Effect.fn("checkAntigravityProvide
       });
     }
 
+    const antigravityStatus: ServerProviderAntigravityStatus = {
+      account: {
+        email: account.email ?? null,
+        type: account.type ?? "Google / Antigravity CLI",
+        tier: account.label ?? "Standard",
+      },
+      cli: {
+        binaryPath: settings.binaryPath || "agy",
+        version: version ?? null,
+        installed: true,
+        status: "ready",
+        modelsCount: models.length,
+      },
+    };
+
     return buildServerProvider({
       presentation: ANTIGRAVITY_PRESENTATION,
       enabled: settings.enabled,
@@ -359,6 +374,7 @@ export const checkAntigravityProviderStatus = Effect.fn("checkAntigravityProvide
               ...account,
             }
           : { status: "unknown" },
+        antigravityStatus,
       },
     });
   },

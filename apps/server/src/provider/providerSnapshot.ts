@@ -5,6 +5,7 @@ import type {
   ServerProviderClaudeStatus,
   ServerProviderAuth,
   ServerProviderCodexStatus,
+  ServerProviderAntigravityStatus,
   ServerProviderSkill,
   ServerProviderSlashCommand,
   ServerProviderModel,
@@ -54,6 +55,7 @@ export interface ProviderProbeResult {
   readonly message?: string;
   readonly codexStatus?: ServerProviderCodexStatus;
   readonly claudeStatus?: ServerProviderClaudeStatus;
+  readonly antigravityStatus?: ServerProviderAntigravityStatus;
 }
 
 export interface ServerProviderPresentation {
@@ -252,6 +254,7 @@ export function buildServerProvider(input: {
     ...(input.probe.message ? { message: input.probe.message } : {}),
     ...(input.probe.codexStatus ? { codexStatus: input.probe.codexStatus } : {}),
     ...(input.probe.claudeStatus ? { claudeStatus: input.probe.claudeStatus } : {}),
+    ...(input.probe.antigravityStatus ? { antigravityStatus: input.probe.antigravityStatus } : {}),
     models: input.models,
     slashCommands: [...(input.slashCommands ?? [])],
     skills: [...(input.skills ?? [])],

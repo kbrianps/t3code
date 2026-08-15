@@ -209,6 +209,28 @@ export const ServerProviderUpdateState = Schema.Struct({
 });
 export type ServerProviderUpdateState = typeof ServerProviderUpdateState.Type;
 
+export const ServerProviderAntigravityStatus = Schema.Struct({
+  account: Schema.optionalKey(
+    Schema.NullOr(
+      Schema.Struct({
+        email: Schema.optionalKey(Schema.NullOr(Schema.String)),
+        type: Schema.optionalKey(TrimmedNonEmptyString),
+        tier: Schema.optionalKey(TrimmedNonEmptyString),
+      }),
+    ),
+  ),
+  cli: Schema.optionalKey(
+    Schema.Struct({
+      binaryPath: Schema.optionalKey(TrimmedNonEmptyString),
+      version: Schema.optionalKey(Schema.NullOr(TrimmedNonEmptyString)),
+      installed: Schema.Boolean,
+      status: TrimmedNonEmptyString,
+      modelsCount: Schema.Int,
+    }),
+  ),
+});
+export type ServerProviderAntigravityStatus = typeof ServerProviderAntigravityStatus.Type;
+
 export const ServerProvider = Schema.Struct({
   // Routing key for the configured instance this snapshot represents. This
   // is the only stable identity consumers may use for provider routing.
@@ -247,6 +269,7 @@ export const ServerProvider = Schema.Struct({
   codexStatus: Schema.optionalKey(ServerProviderCodexStatus),
   /** Live plan rate-limit data returned by Claude Code's Agent SDK. */
   claudeStatus: Schema.optionalKey(ServerProviderClaudeStatus),
+  antigravityStatus: Schema.optionalKey(ServerProviderAntigravityStatus),
   versionAdvisory: Schema.optionalKey(ServerProviderVersionAdvisory),
   updateState: Schema.optionalKey(ServerProviderUpdateState),
 });
