@@ -122,10 +122,10 @@ function ServerThreadTabItem({
       onAuxClick={onAuxClick}
       onContextMenu={onContextMenu}
       className={cn(
-        "group/tab relative flex h-7 max-w-48 min-w-24 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 text-xs transition-all duration-150 [-webkit-app-region:no-drag]",
+        "group/tab relative inline-flex h-7 max-w-52 min-w-24 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-md border px-2 text-xs transition-all duration-150 [-webkit-app-region:no-drag]",
         isActive
-          ? "border border-border/80 bg-accent text-foreground shadow-2xs font-medium"
-          : "border border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+          ? "border-input bg-popover font-medium text-foreground shadow-xs/5 dark:bg-input/32 dark:border-border/60"
+          : "border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
         isDragged && "opacity-40 scale-95",
         isDragOver && !isDragged && "ring-2 ring-primary/80 bg-accent/90",
       )}
@@ -444,36 +444,37 @@ export function WorkspaceTabs({
   }, []);
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden" data-workspace-tabs="">
+    <div
+      className="flex h-8 min-w-0 flex-1 items-center gap-1.5 overflow-hidden"
+      data-workspace-tabs=""
+    >
       <ScrollArea
         hideScrollbars
         scrollFade
-        className="min-w-0 flex-1 rounded-none"
+        className="h-8 max-h-8 min-w-0 flex-1 rounded-none"
         data-workspace-tab-list=""
       >
-        <div
-          onWheel={handleWheel}
-          className="flex h-full w-max min-w-full items-center gap-1 py-0.5"
-        >
+        <div onWheel={handleWheel} className="flex h-8 w-max min-w-full items-center gap-1 px-0.5">
           <Tooltip>
             <TooltipTrigger
               render={
-                <button
-                  type="button"
+                <Button
+                  size="compact"
+                  variant={isDraftActive ? "outline" : "ghost"}
                   aria-label="New thread"
                   data-active-tab={isDraftActive ? "true" : "false"}
                   data-tab-key="new-thread"
                   onClick={onNewTab}
                   className={cn(
-                    "group/tab relative flex h-7 max-w-40 min-w-24 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors duration-150 [-webkit-app-region:no-drag] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+                    "max-w-36 shrink-0 font-normal text-xs [-webkit-app-region:no-drag]",
                     isDraftActive
-                      ? "border border-border/80 bg-accent text-foreground shadow-2xs font-medium"
-                      : "border border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                      ? "border-input bg-popover font-medium text-foreground shadow-xs/5 dark:bg-input/32 dark:border-border/60"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                   )}
                 >
-                  <Plus className="size-3.5 shrink-0 text-muted-foreground group-hover/tab:text-foreground" />
+                  <Plus className="size-3.5 shrink-0" />
                   <span className="truncate">New thread</span>
-                </button>
+                </Button>
               }
             />
             <TooltipPopup side="bottom">New thread</TooltipPopup>
