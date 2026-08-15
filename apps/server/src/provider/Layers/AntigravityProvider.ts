@@ -49,24 +49,128 @@ const ANTIGRAVITY_BUILT_IN_MODELS: ReadonlyArray<ServerProviderModel> = [
     capabilities: EMPTY_CAPABILITIES,
   },
   {
-    slug: "gemini-3.7-pro",
-    name: "Gemini 3.7 Pro",
+    slug: "gemini-3.7-flash-high",
+    name: "Gemini 3.7 Flash (High)",
     isCustom: false,
     capabilities: EMPTY_CAPABILITIES,
   },
   {
-    slug: "gemini-2.5-pro",
-    name: "Gemini 2.5 Pro",
+    slug: "gemini-3.7-flash-medium",
+    name: "Gemini 3.7 Flash (Medium)",
     isCustom: false,
     capabilities: EMPTY_CAPABILITIES,
   },
   {
-    slug: "gemini-2.5-flash",
-    name: "Gemini 2.5 Flash",
+    slug: "gemini-3.7-flash-low",
+    name: "Gemini 3.7 Flash (Low)",
+    isCustom: false,
+    capabilities: EMPTY_CAPABILITIES,
+  },
+  {
+    slug: "gemini-3.6-flash",
+    name: "Gemini 3.6 Flash",
+    isCustom: false,
+    capabilities: EMPTY_CAPABILITIES,
+  },
+  {
+    slug: "gemini-3.6-flash-high",
+    name: "Gemini 3.6 Flash (High)",
+    isCustom: false,
+    capabilities: EMPTY_CAPABILITIES,
+  },
+  {
+    slug: "gemini-3.6-flash-medium",
+    name: "Gemini 3.6 Flash (Medium)",
+    isCustom: false,
+    capabilities: EMPTY_CAPABILITIES,
+  },
+  {
+    slug: "gemini-3.6-flash-low",
+    name: "Gemini 3.6 Flash (Low)",
+    isCustom: false,
+    capabilities: EMPTY_CAPABILITIES,
+  },
+  {
+    slug: "gemini-3.5-flash",
+    name: "Gemini 3.5 Flash",
+    isCustom: false,
+    capabilities: EMPTY_CAPABILITIES,
+  },
+  {
+    slug: "gemini-3.5-flash-high",
+    name: "Gemini 3.5 Flash (High)",
+    isCustom: false,
+    capabilities: EMPTY_CAPABILITIES,
+  },
+  {
+    slug: "gemini-3.5-flash-medium",
+    name: "Gemini 3.5 Flash (Medium)",
+    isCustom: false,
+    capabilities: EMPTY_CAPABILITIES,
+  },
+  {
+    slug: "gemini-3.5-flash-low",
+    name: "Gemini 3.5 Flash (Low)",
+    isCustom: false,
+    capabilities: EMPTY_CAPABILITIES,
+  },
+  {
+    slug: "gemini-3.1-pro",
+    name: "Gemini 3.1 Pro",
+    isCustom: false,
+    capabilities: EMPTY_CAPABILITIES,
+  },
+  {
+    slug: "gemini-3.1-pro-high",
+    name: "Gemini 3.1 Pro (High)",
+    isCustom: false,
+    capabilities: EMPTY_CAPABILITIES,
+  },
+  {
+    slug: "gemini-3.1-pro-low",
+    name: "Gemini 3.1 Pro (Low)",
+    isCustom: false,
+    capabilities: EMPTY_CAPABILITIES,
+  },
+  {
+    slug: "claude-sonnet-4-6",
+    name: "Claude Sonnet 4.6 (Thinking)",
+    isCustom: false,
+    capabilities: EMPTY_CAPABILITIES,
+  },
+  {
+    slug: "claude-opus-4-6-thinking",
+    name: "Claude Opus 4.6 (Thinking)",
+    isCustom: false,
+    capabilities: EMPTY_CAPABILITIES,
+  },
+  {
+    slug: "gpt-oss-120b-medium",
+    name: "GPT-OSS 120B (Medium)",
     isCustom: false,
     capabilities: EMPTY_CAPABILITIES,
   },
 ];
+
+export function parseAntigravityModels(output: string): ReadonlyArray<ServerProviderModel> {
+  const lines = output.split("\n");
+  const models: ServerProviderModel[] = [];
+  for (const line of lines) {
+    const cleanLine = line.replace(/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏\s\w.]+Fetching available models\.\.\./, "").trim();
+    if (!cleanLine) continue;
+    const match =
+      cleanLine.match(/^([a-z0-9_.-]+)\s{2,}(.+)$/i) || cleanLine.match(/^([a-z0-9_.-]+)\s+(.+)$/i);
+    if (match && match[1] && match[2]) {
+      models.push({
+        slug: match[1].trim(),
+        name: match[2].trim(),
+        isCustom: false,
+        capabilities: EMPTY_CAPABILITIES,
+      });
+    }
+  }
+  return models.length > 0 ? models : ANTIGRAVITY_BUILT_IN_MODELS;
+}
 
 function resolveAntigravityAccount(
   settings: AntigravitySettings,

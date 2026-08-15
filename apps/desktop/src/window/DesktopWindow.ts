@@ -116,12 +116,15 @@ const { logInfo: logWindowInfo, logWarning: logWindowWarning } =
 function getIconOption(
   iconPaths: DesktopAssets.DesktopIconPaths,
   platform: NodeJS.Platform,
-): { icon: string } | Record<string, never> {
-  if (platform === "darwin") return {}; // macOS uses .icns from app bundle
+): { icon: string | Electron.NativeImage } | Record<string, never> {
+  if (platform === "darwin") return {};
   const ext = platform === "win32" ? "ico" : "png";
   return Option.match(iconPaths[ext], {
     onNone: () => ({}),
-    onSome: (icon) => ({ icon }),
+    onSome: (icon) => {
+      const nativeImg = Electron.nativeImage.createFromPath(icon);
+      return nativeImg.isEmpty() ? { icon } : { icon: nativeImg };
+    },
   });
 }
 
@@ -369,6 +372,17 @@ export const make = Effect.gen(function* () {
 
     if (environment.platform === "darwin") {
       window.setAutoHideCursor(false);
+    }
+    if (environment.platform === "linux") {
+      Option.match(iconPaths.png, {
+        onNone: () => {},
+        onSome: (icon) => {
+          const img = Electron.nativeImage.createFromPath(icon);
+          if (!img.isEmpty()) {
+            window.setIcon(img);
+          }
+        },
+      });
     }
     let boundsPersistFiber: Fiber.Fiber<void, never> | undefined;
     let pendingBoundsPersistFiber: Fiber.Fiber<void, never> | undefined;

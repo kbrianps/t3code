@@ -227,8 +227,8 @@ const make = Effect.fn("desktop.environment.make")(function* (
     appUserModelId: Option.getOrElse(config.appUserModelIdOverride, () =>
       isDevelopment ? "com.t3tools.t3code.dev" : "com.t3tools.t3code",
     ),
-    linuxDesktopEntryName: isDevelopment ? "t3code-dev.desktop" : "t3code.desktop",
-    linuxWmClass: isDevelopment ? "t3code-dev" : "t3code",
+    linuxDesktopEntryName: isDevelopment ? "t3code-dev.desktop" : "t3code-enhanced.desktop",
+    linuxWmClass: isDevelopment ? "t3code-dev" : "t3code-enhanced",
     linuxApplicationsDir,
     appImagePath: config.appImagePath,
     userDataDirName,
@@ -265,6 +265,7 @@ const make = Effect.fn("desktop.environment.make")(function* (
       return Option.some(path.resolve(trimmedPath));
     },
     resolveResourcePathCandidates: (fileName) => [
+      path.join(homeDirectory, ".local/share/icons/hicolor/512x512/apps/t3code-enhanced.png"),
       path.join(input.dirname, "../resources", fileName),
       path.join(input.dirname, "../prod-resources", fileName),
       path.join(resourcesPath, "resources", fileName),
