@@ -94,8 +94,8 @@ describe("DesktopPreReadyPlatform", () => {
         return yield* DesktopPreReadyPlatform.DesktopPreReadyElectronOptions;
       }).pipe(Effect.provide(preReadyLayer));
 
-      assert.equal(options.linux?.linuxWmClass, "t3code");
-      assert.deepEqual(appendSwitchMock.mock.calls[0], ["class", "t3code"]);
+      assert.equal(options.linux?.linuxWmClass, "t3code-enhanced");
+      assert.deepEqual(appendSwitchMock.mock.calls[0], ["class", "t3code-enhanced"]);
     }),
   );
 
