@@ -1,5 +1,5 @@
 import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { scopedThreadKey, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronDown, Pin, Plus, X } from "lucide-react";
 import {
@@ -13,9 +13,11 @@ import {
   useRef,
   useState,
 } from "react";
+import { hasUnseenCompletion } from "~/components/Sidebar.logic";
 import type { DraftId } from "~/composerDraftStore";
 import { cn } from "~/lib/utils";
 import { readLocalApi } from "~/localApi";
+import { useUiStateStore } from "~/uiStateStore";
 import { Button } from "../ui/button";
 import { Group, GroupSeparator } from "../ui/group";
 import { ScrollArea } from "../ui/scroll-area";
@@ -84,7 +86,13 @@ function ServerThreadTabItem({
     () => scopeThreadRef(tab.environmentId, tab.threadId),
     [tab.environmentId, tab.threadId],
   );
+  const threadKey = useMemo(() => scopedThreadKey(threadRef), [threadRef]);
   const shell = useThreadShell(threadRef);
+  const lastVisitedAt = useUiStateStore((state) => state.threadLastVisitedAtById[threadKey]);
+  const isUnread = useMemo(() => {
+    if (isActive || !shell) return false;
+    return hasUnseenCompletion({ ...shell, lastVisitedAt });
+  }, [isActive, shell, lastVisitedAt]);
   const title = shell?.title || tab.title || "Thread";
   const fullLabel = tab.projectName ? `${tab.projectName} · ${title}` : title;
 
@@ -114,7 +122,7 @@ function ServerThreadTabItem({
       onContextMenu={onContextMenu}
       className={cn(
         "group/tab shrink-0 transition-opacity duration-150 [-webkit-app-region:no-drag]",
-        isActive ? "opacity-100" : "opacity-60 hover:opacity-100",
+        isActive || isUnread ? "opacity-100" : "opacity-60 hover:opacity-100",
         isDragged && "opacity-40 scale-95",
         isDragOver && !isDragged && "ring-2 ring-primary/80 opacity-100",
       )}
@@ -144,10 +152,12 @@ function ServerThreadTabItem({
                   aria-label={fullLabel}
                   onClick={onActivate}
                   className={cn(
-                    "max-w-44 ps-[8.5px] text-xs font-normal",
+                    "relative max-w-44 ps-[8.5px] text-xs font-normal",
                     isActive
                       ? "bg-accent font-medium text-foreground ring-1 ring-ring/40 shadow-xs"
-                      : "text-muted-foreground hover:text-foreground",
+                      : isUnread
+                        ? "text-foreground font-medium"
+                        : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   <ProjectFavicon
@@ -158,6 +168,14 @@ function ServerThreadTabItem({
                   />
                   <span className="truncate">{title}</span>
                   {tab.pinned ? <Pin className="size-2.5 shrink-0 rotate-45 opacity-60" /> : null}
+                  {isUnread ? (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute -top-1 -right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-semibold tabular-nums text-white shadow-xs"
+                    >
+                      1
+                    </span>
+                  ) : null}
                 </Button>
               }
             />
