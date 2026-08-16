@@ -123,9 +123,10 @@ function ServerThreadTabItem({
       onAuxClick={onAuxClick}
       onContextMenu={onContextMenu}
       className={cn(
-        "group/tab shrink-0 [-webkit-app-region:no-drag]",
+        "group/tab shrink-0 transition-opacity duration-150 [-webkit-app-region:no-drag]",
+        isActive ? "opacity-100" : "opacity-60 hover:opacity-100",
         isDragged && "opacity-40 scale-95",
-        isDragOver && !isDragged && "ring-2 ring-primary/80",
+        isDragOver && !isDragged && "ring-2 ring-primary/80 opacity-100",
       )}
     >
       <Group aria-label={fullLabel} className="shrink-0">
@@ -155,10 +156,10 @@ function ServerThreadTabItem({
                   aria-haspopup={isActive ? "menu" : undefined}
                   onClick={handleActivationClick}
                   className={cn(
-                    "max-w-44 ps-[8.5px] text-xs",
+                    "max-w-44 ps-[8.5px] text-xs font-normal",
                     isActive
                       ? "bg-accent font-medium text-foreground ring-1 ring-ring/40 shadow-xs"
-                      : "text-foreground",
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   <ProjectFavicon
@@ -186,7 +187,7 @@ function ServerThreadTabItem({
           onClick={onClose}
           className={cn(
             "text-muted-foreground hover:text-foreground",
-            isActive && "bg-accent ring-1 ring-ring/40 shadow-xs",
+            isActive && "bg-accent ring-1 ring-ring/40 shadow-xs text-foreground",
           )}
         >
           <X className="size-3.5" />
