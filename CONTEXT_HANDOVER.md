@@ -68,7 +68,24 @@ Este documento consolida o estado atual do desenvolvimento, decisões arquitetur
 
 ---
 
-### 3. Abas e Barra Superior de Ações
+### 3. Reorganização de Providers no Chat e Indicadores de Abas
+
+- **Reorganização de Providers por Arrastar e Soltar (Drag & Drop)**:
+  - Ao abrir o seletor de modelos no chat, os ícones de provedores na barra lateral do popover (`ModelPickerSidebar`) podem ser arrastados e soltos para reorganizar a ordem de exibição.
+  - A ordem customizada é salva em `useUiStateStore` (`providerOrder`) e persistida no `localStorage`.
+  - A listagem de modelos, busca e seleção de instâncias respeitam a ordem customizada definida pelo usuário.
+- **Indicador de Não Lido nas Abas (Workspace Tabs)**:
+  - Substituído o badge numérico fixo `1` por uma bolinha vermelha sutil e elegante (`bg-destructive`) no canto superior da aba inativa quando concluída em segundo plano.
+- **Arquivos**:
+  - `apps/web/src/uiStateStore.ts`
+  - `apps/web/src/providerInstances.ts`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/ModelPickerSidebar.tsx`
+  - `apps/web/src/components/chat/WorkspaceTabs.tsx`
+
+---
+
+### 4. Abas e Barra Superior de Ações
 
 - Notificações de término com badge numérico nas abas inativas.
 - Supressão do badge de +1 se a aba correspondente já estiver aberta/ativa.
