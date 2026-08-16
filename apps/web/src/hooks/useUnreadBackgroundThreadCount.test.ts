@@ -156,5 +156,13 @@ describe("countUnreadBackgroundThreads", () => {
       1,
     );
     expect(countUnreadBackgroundThreads([thread1, thread2, thread3], visits, key1)).toBe(0);
+    expect(
+      countUnreadBackgroundThreads(
+        [thread1, thread2, thread3],
+        visits,
+        "active-thread",
+        new Set([key1]),
+      ),
+    ).toBe(0);
   });
 });
