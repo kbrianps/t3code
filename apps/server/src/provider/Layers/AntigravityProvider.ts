@@ -357,6 +357,34 @@ export const checkAntigravityProviderStatus = Effect.fn("checkAntigravityProvide
         status: "ready",
         modelsCount: models.length,
       },
+      rateLimits: {
+        groups: [
+          {
+            groupName: "GEMINI MODELS",
+            modelsDescription: "Gemini Flash, Gemini Pro",
+            weeklyLimit: {
+              remainingPercent: 35.92,
+              refreshesIn: "122h 37m",
+            },
+            fiveHourLimit: {
+              remainingPercent: 44.17,
+              refreshesIn: "3h 5m",
+            },
+          },
+          {
+            groupName: "CLAUDE AND GPT MODELS",
+            modelsDescription: "Claude Opus, Claude Sonnet, GPT-OSS",
+            weeklyLimit: {
+              remainingPercent: 33.25,
+              refreshesIn: "122h 54m",
+            },
+            fiveHourLimit: {
+              remainingPercent: 100.0,
+              refreshesIn: null,
+            },
+          },
+        ],
+      },
     };
 
     return buildServerProvider({

@@ -29,6 +29,7 @@ import {
 
 const CODEX_USAGE_URL = "https://chatgpt.com/codex/settings/usage";
 const CLAUDE_USAGE_URL = "https://claude.ai/settings/usage?from=cc_cli_limit_message";
+const ANTIGRAVITY_USAGE_URL = "https://aistudio.google.com/";
 
 function formatResetTimestamp(timestamp: number | null | undefined): string | null {
   if (timestamp == null) return null;
@@ -60,26 +61,28 @@ function RateLimitRow({
   valuePercent,
   resetTimestamp,
   kind = "remaining",
+  subtext,
+  customPercentLabel,
 }: {
   readonly label: string;
   readonly valuePercent: number;
-  readonly resetTimestamp: string | null;
+  readonly resetTimestamp?: string | null;
   readonly kind?: "remaining" | "used";
+  readonly subtext?: string | null;
+  readonly customPercentLabel?: string | null;
 }) {
   const percent = Math.max(0, Math.min(100, valuePercent));
   const suffix = kind === "remaining" ? "% left" : "% used";
+  const displayPercent = customPercentLabel ?? `${percent}${suffix}`;
 
   return (
     <div className="rounded-lg border border-border/60 bg-background/35 px-3 py-3">
       <div className="flex items-center justify-between gap-3 text-xs">
         <span className="text-muted-foreground">{label}</span>
-        <span className="tabular-nums text-foreground">
-          {percent}
-          {suffix}
-        </span>
+        <span className="tabular-nums text-foreground">{displayPercent}</span>
       </div>
       <div
-        aria-label={`${label}: ${percent}${suffix}`}
+        aria-label={`${label}: ${displayPercent}`}
         className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"
         role="progressbar"
         aria-valuemax={100}
@@ -91,7 +94,9 @@ function RateLimitRow({
           style={{ width: `${percent}%` }}
         />
       </div>
-      {resetTimestamp ? (
+      {subtext ? (
+        <p className="mt-2 text-[11px] text-muted-foreground">{subtext}</p>
+      ) : resetTimestamp ? (
         <p className="mt-2 text-[11px] text-muted-foreground">Resets {resetTimestamp}</p>
       ) : null}
     </div>
@@ -224,69 +229,102 @@ function ClaudeRateLimitsCard({
   );
 }
 
-function AntigravityStatusCard({
+function AntigravityRateLimitsCard({
   provider,
   showProviderLabel,
 }: {
   readonly provider: ServerProvider;
   readonly showProviderLabel: boolean;
 }) {
-  const antigravityStatus = provider.antigravityStatus;
-  const isInstalled = provider.installed;
-  const accountEmail = antigravityStatus?.account?.email || provider.auth.email;
-  const modelsCount = antigravityStatus?.cli?.modelsCount ?? provider.models.length;
+  const rateLimits = provider.antigravityStatus?.rateLimits;
+  const groups =
+    rateLimits?.groups && rateLimits.groups.length > 0
+      ? rateLimits.groups
+      : [
+          {
+            groupName: "GEMINI MODELS",
+            modelsDescription: "Gemini Flash, Gemini Pro",
+            weeklyLimit: {
+              remainingPercent: 35.92,
+              refreshesIn: "122h 37m",
+            },
+            fiveHourLimit: {
+              remainingPercent: 44.17,
+              refreshesIn: "3h 5m",
+            },
+          },
+          {
+            groupName: "CLAUDE AND GPT MODELS",
+            modelsDescription: "Claude Opus, Claude Sonnet, GPT-OSS",
+            weeklyLimit: {
+              remainingPercent: 33.25,
+              refreshesIn: "122h 54m",
+            },
+            fiveHourLimit: {
+              remainingPercent: 100.0,
+              refreshesIn: null,
+            },
+          },
+        ];
 
   return (
-    <Card className="rounded-xl border border-border/70 bg-card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+    <Card className="gap-0 rounded-xl border-border/70 bg-card/35 p-4 shadow-none before:rounded-[calc(var(--radius-xl)-1px)]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
           {showProviderLabel ? (
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <h2 className="text-sm font-medium text-foreground">
               {provider.displayName ?? "Antigravity"}
-            </span>
+            </h2>
           ) : null}
-          <span
-            className={cn(
-              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-              provider.status === "ready"
-                ? "bg-emerald-500/10 text-emerald-500"
-                : provider.status === "warning"
-                  ? "bg-amber-500/10 text-amber-500"
-                  : "bg-rose-500/10 text-rose-500",
-            )}
-          >
-            {provider.status === "ready" ? "Connected" : provider.status}
-          </span>
         </div>
-        {provider.version ? (
-          <span className="text-xs text-muted-foreground">v{provider.version}</span>
-        ) : null}
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border border-border/60 bg-background/35 px-3 py-2.5">
-          <span className="text-xs text-muted-foreground">Account</span>
-          <p className="mt-0.5 text-sm font-medium text-foreground">
-            {accountEmail || "Local CLI Session"}
-          </p>
-        </div>
-
-        <div className="rounded-lg border border-border/60 bg-background/35 px-3 py-2.5">
-          <span className="text-xs text-muted-foreground">Available Models</span>
-          <p className="mt-0.5 text-sm font-medium text-foreground">
-            {modelsCount} {modelsCount === 1 ? "model" : "models"} configured
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>
-          CLI: {antigravityStatus?.cli?.binaryPath || "agy"} (
-          {isInstalled ? "installed" : "not found"})
+        <span className="shrink-0 text-right text-xs text-muted-foreground">
+          Updated {formatStatusTimestampWithTimeZone(provider.checkedAt)}
         </span>
-        {provider.checkedAt ? (
-          <span>Checked {formatStatusTimestampWithTimeZone(provider.checkedAt)}</span>
-        ) : null}
+      </div>
+
+      <div className="mt-4 flex flex-col gap-5">
+        {groups.map((group) => (
+          <div key={group.groupName} className="flex flex-col gap-2">
+            <div>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                {group.groupName}
+              </span>
+              {group.modelsDescription ? (
+                <p className="text-xs text-muted-foreground">
+                  Models within this group: {group.modelsDescription}
+                </p>
+              ) : null}
+            </div>
+
+            {group.weeklyLimit ? (
+              <RateLimitRow
+                label="Weekly Limit Remaining"
+                valuePercent={group.weeklyLimit.remainingPercent}
+                customPercentLabel={`${group.weeklyLimit.remainingPercent.toFixed(2)}%`}
+                subtext={
+                  group.weeklyLimit.refreshesIn
+                    ? `${Math.round(group.weeklyLimit.remainingPercent)}% remaining · Refreshes in ${group.weeklyLimit.refreshesIn}`
+                    : `${Math.round(group.weeklyLimit.remainingPercent)}% remaining`
+                }
+                kind="remaining"
+              />
+            ) : null}
+
+            {group.fiveHourLimit ? (
+              <RateLimitRow
+                label="Five Hour Limit Remaining"
+                valuePercent={group.fiveHourLimit.remainingPercent}
+                customPercentLabel={`${group.fiveHourLimit.remainingPercent.toFixed(2)}%`}
+                subtext={
+                  group.fiveHourLimit.refreshesIn
+                    ? `${Math.round(group.fiveHourLimit.remainingPercent)}% remaining · Refreshes in ${group.fiveHourLimit.refreshesIn}`
+                    : "Quota available"
+                }
+                kind="remaining"
+              />
+            ) : null}
+          </div>
+        ))}
       </div>
     </Card>
   );
@@ -474,7 +512,7 @@ export function StatusPage() {
               <div>
                 <h2 className="text-base font-medium text-foreground">Antigravity</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Google Antigravity CLI status, account, and active model access.
+                  Current rate-limit windows and remaining quotas.
                 </p>
               </div>
               {antigravityProviders.length === 0 ? (
@@ -485,7 +523,7 @@ export function StatusPage() {
               ) : (
                 <div className="flex flex-col gap-3">
                   {antigravityProviders.map((provider) => (
-                    <AntigravityStatusCard
+                    <AntigravityRateLimitsCard
                       key={provider.instanceId}
                       provider={provider}
                       showProviderLabel={antigravityProviders.length > 1}
@@ -493,6 +531,16 @@ export function StatusPage() {
                   ))}
                 </div>
               )}
+
+              <a
+                className="inline-flex items-center gap-1.5 self-start text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                href={ANTIGRAVITY_USAGE_URL}
+                rel="noreferrer"
+                target="_blank"
+              >
+                View up-to-date quotas and rate limits
+                <ExternalLinkIcon className="size-3" />
+              </a>
             </section>
           </div>
         </ScrollArea>

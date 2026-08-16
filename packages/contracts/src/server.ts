@@ -209,6 +209,22 @@ export const ServerProviderUpdateState = Schema.Struct({
 });
 export type ServerProviderUpdateState = typeof ServerProviderUpdateState.Type;
 
+export const ServerProviderAntigravityQuotaWindow = Schema.Struct({
+  remainingPercent: Schema.Number,
+  refreshesIn: Schema.optionalKey(Schema.NullOr(TrimmedNonEmptyString)),
+  resetsAt: Schema.optionalKey(Schema.NullOr(IsoDateTime)),
+});
+export type ServerProviderAntigravityQuotaWindow = typeof ServerProviderAntigravityQuotaWindow.Type;
+
+export const ServerProviderAntigravityModelGroupQuota = Schema.Struct({
+  groupName: TrimmedNonEmptyString,
+  modelsDescription: Schema.optionalKey(Schema.NullOr(TrimmedNonEmptyString)),
+  weeklyLimit: Schema.optionalKey(Schema.NullOr(ServerProviderAntigravityQuotaWindow)),
+  fiveHourLimit: Schema.optionalKey(Schema.NullOr(ServerProviderAntigravityQuotaWindow)),
+});
+export type ServerProviderAntigravityModelGroupQuota =
+  typeof ServerProviderAntigravityModelGroupQuota.Type;
+
 export const ServerProviderAntigravityStatus = Schema.Struct({
   account: Schema.optionalKey(
     Schema.NullOr(
@@ -226,6 +242,11 @@ export const ServerProviderAntigravityStatus = Schema.Struct({
       installed: Schema.Boolean,
       status: TrimmedNonEmptyString,
       modelsCount: Schema.Int,
+    }),
+  ),
+  rateLimits: Schema.optionalKey(
+    Schema.Struct({
+      groups: Schema.Array(ServerProviderAntigravityModelGroupQuota),
     }),
   ),
 });
