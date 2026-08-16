@@ -42,7 +42,7 @@ Este documento consolida o estado atual do desenvolvimento, decisões arquitetur
 
 ---
 
-### 2. Página de Status do Provedor Antigravity
+### 2. Página de Status e Provedor Antigravity
 
 - Alinhada com a estética e ordenamento de cards do Codex e Claude.
 - **Grupos de Modelos com Cotas**:
@@ -52,10 +52,18 @@ Este documento consolida o estado atual do desenvolvimento, decisões arquitetur
   - **CLAUDE AND GPT MODELS** (Claude Opus, Claude Sonnet, GPT-OSS):
     - Weekly Limit Remaining.
     - Five Hour Limit Remaining.
-  - Link direto ao final da seção para a página de quotas.
+  - Link direto ao final da seção para a página de quotas com o timestamp `Updated ...` alinhado à direita na mesma linha.
+- **Layout Limpo de Cards de Status**:
+  - Removido topo vazio com `Updated ...` dos cards quando há apenas 1 provedor configurado.
+  - O timestamp agora fica discretamente na linha inferior junto ao link de limites e cotas.
+- **Modelos e Níveis de Raciocínio (Effort)**:
+  - Nomes de modelos limpos de sufixos `(High)`, `(Medium)`, `(Low)` / `-high`, `-medium`, `-low`.
+  - Seletor de `Reasoning` (Effort) com opções `Low`, `Medium` (padrão) e `High` exposto ao lado do dropdown de modelos.
+  - O adapter repassa `--model <modelo>` e `--effort <esforço>` diretamente para o binário `agy`.
 - **Arquivos**:
   - `packages/contracts/src/server.ts`
   - `apps/server/src/provider/Layers/AntigravityProvider.ts`
+  - `apps/server/src/provider/Layers/AntigravityAdapter.ts`
   - `apps/web/src/components/status/StatusPage.tsx`
 
 ---
