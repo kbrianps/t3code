@@ -138,4 +138,53 @@ it.layer(NodeServices.layer)("makeAntigravityAdapter", (it) => {
       yield* adapter.stopSession(threadId);
     }),
   );
+
+  it.effect("passes selected model and effort to agy CLI arguments", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const dir = yield* fs.makeTempDirectory({ prefix: "agy-mock-args-" });
+      const argsLog = path.join(dir, "args.log");
+      const scriptPath = path.join(dir, "fake-agy.sh");
+      yield* fs.writeFileString(
+        scriptPath,
+        `#!/bin/sh\nprintf "%s\\n" "$*" > "${argsLog}"\nprintf '{"event":"init","conversation_id":"conv-args"}\\n{"event":"result","result":{"conversation_id":"conv-args"}}\\n'\nexit 0\n`,
+      );
+      yield* fs.chmod(scriptPath, 0o755);
+
+      const adapter = yield* makeAntigravityAdapter(
+        decodeAntigravitySettings({
+          enabled: true,
+          binaryPath: scriptPath,
+        }),
+      );
+
+      const threadId = ThreadId.make("thread-args-test");
+      yield* adapter.startSession({
+        threadId,
+        runtimeMode: "full-access",
+        modelSelection: {
+          instanceId: ProviderInstanceId.make("antigravity"),
+          model: "gemini-3.7-flash",
+          options: [{ id: "effort", value: "high" }],
+        },
+      });
+
+      yield* adapter.sendTurn({
+        threadId,
+        input: "Hello with high effort",
+        modelSelection: {
+          instanceId: ProviderInstanceId.make("antigravity"),
+          model: "gemini-3.7-flash",
+          options: [{ id: "effort", value: "high" }],
+        },
+      });
+
+      const loggedArgs = yield* fs.readFileString(argsLog);
+      expect(loggedArgs).toContain("--model gemini-3.7-flash");
+      expect(loggedArgs).toContain("--effort high");
+
+      yield* adapter.stopSession(threadId);
+    }),
+  );
 });

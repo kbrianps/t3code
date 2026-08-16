@@ -16,6 +16,7 @@ import { createModelCapabilities } from "@t3tools/shared/model";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
 
 import {
+  buildSelectOptionDescriptor,
   buildServerProvider,
   isCommandMissingCause,
   parseGenericCliVersion,
@@ -35,8 +36,18 @@ const ANTIGRAVITY_PRESENTATION = {
   requiresNewThreadForModelChange: false,
 } as const;
 
-const EMPTY_CAPABILITIES: ModelCapabilities = createModelCapabilities({
-  optionDescriptors: [],
+const ANTIGRAVITY_EFFORT_DESCRIPTOR = buildSelectOptionDescriptor({
+  id: "effort",
+  label: "Reasoning",
+  options: [
+    { value: "low", label: "Low" },
+    { value: "medium", label: "Medium", isDefault: true },
+    { value: "high", label: "High" },
+  ],
+});
+
+const ANTIGRAVITY_CAPABILITIES: ModelCapabilities = createModelCapabilities({
+  optionDescriptors: [ANTIGRAVITY_EFFORT_DESCRIPTOR],
 });
 
 const VERSION_PROBE_TIMEOUT_MS = 4_000;
@@ -46,130 +57,71 @@ const ANTIGRAVITY_BUILT_IN_MODELS: ReadonlyArray<ServerProviderModel> = [
     slug: "gemini-3.7-flash",
     name: "Gemini 3.7 Flash",
     isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
-  },
-  {
-    slug: "gemini-3.7-flash-high",
-    name: "Gemini 3.7 Flash (High)",
-    isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
-  },
-  {
-    slug: "gemini-3.7-flash-medium",
-    name: "Gemini 3.7 Flash (Medium)",
-    isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
-  },
-  {
-    slug: "gemini-3.7-flash-low",
-    name: "Gemini 3.7 Flash (Low)",
-    isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
+    capabilities: ANTIGRAVITY_CAPABILITIES,
   },
   {
     slug: "gemini-3.6-flash",
     name: "Gemini 3.6 Flash",
     isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
-  },
-  {
-    slug: "gemini-3.6-flash-high",
-    name: "Gemini 3.6 Flash (High)",
-    isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
-  },
-  {
-    slug: "gemini-3.6-flash-medium",
-    name: "Gemini 3.6 Flash (Medium)",
-    isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
-  },
-  {
-    slug: "gemini-3.6-flash-low",
-    name: "Gemini 3.6 Flash (Low)",
-    isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
+    capabilities: ANTIGRAVITY_CAPABILITIES,
   },
   {
     slug: "gemini-3.5-flash",
     name: "Gemini 3.5 Flash",
     isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
-  },
-  {
-    slug: "gemini-3.5-flash-high",
-    name: "Gemini 3.5 Flash (High)",
-    isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
-  },
-  {
-    slug: "gemini-3.5-flash-medium",
-    name: "Gemini 3.5 Flash (Medium)",
-    isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
-  },
-  {
-    slug: "gemini-3.5-flash-low",
-    name: "Gemini 3.5 Flash (Low)",
-    isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
+    capabilities: ANTIGRAVITY_CAPABILITIES,
   },
   {
     slug: "gemini-3.1-pro",
     name: "Gemini 3.1 Pro",
     isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
-  },
-  {
-    slug: "gemini-3.1-pro-high",
-    name: "Gemini 3.1 Pro (High)",
-    isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
-  },
-  {
-    slug: "gemini-3.1-pro-low",
-    name: "Gemini 3.1 Pro (Low)",
-    isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
+    capabilities: ANTIGRAVITY_CAPABILITIES,
   },
   {
     slug: "claude-sonnet-4-6",
     name: "Claude Sonnet 4.6 (Thinking)",
     isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
+    capabilities: ANTIGRAVITY_CAPABILITIES,
   },
   {
     slug: "claude-opus-4-6-thinking",
     name: "Claude Opus 4.6 (Thinking)",
     isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
+    capabilities: ANTIGRAVITY_CAPABILITIES,
   },
   {
     slug: "gpt-oss-120b-medium",
     name: "GPT-OSS 120B (Medium)",
     isCustom: false,
-    capabilities: EMPTY_CAPABILITIES,
+    capabilities: ANTIGRAVITY_CAPABILITIES,
   },
 ];
 
 export function parseAntigravityModels(output: string): ReadonlyArray<ServerProviderModel> {
   const lines = output.split("\n");
-  const models: ServerProviderModel[] = [];
+  const modelsMap = new Map<string, ServerProviderModel>();
   for (const line of lines) {
     const cleanLine = line.replace(/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏\s\w.]+Fetching available models\.\.\./, "").trim();
     if (!cleanLine) continue;
     const match =
       cleanLine.match(/^([a-z0-9_.-]+)\s{2,}(.+)$/i) || cleanLine.match(/^([a-z0-9_.-]+)\s+(.+)$/i);
     if (match && match[1] && match[2]) {
-      models.push({
-        slug: match[1].trim(),
-        name: match[2].trim(),
-        isCustom: false,
-        capabilities: EMPTY_CAPABILITIES,
-      });
+      const rawSlug = match[1].trim();
+      const rawName = match[2].trim();
+      const slug = rawSlug.replace(/-(low|medium|high)$/i, "");
+      const name = rawName.replace(/\s*\((Low|Medium|High)\)$/i, "");
+      if (!modelsMap.has(slug)) {
+        modelsMap.set(slug, {
+          slug,
+          name,
+          isCustom: false,
+          capabilities: ANTIGRAVITY_CAPABILITIES,
+        });
+      }
     }
   }
-  return models.length > 0 ? models : ANTIGRAVITY_BUILT_IN_MODELS;
+  const result = Array.from(modelsMap.values());
+  return result.length > 0 ? result : ANTIGRAVITY_BUILT_IN_MODELS;
 }
 
 function resolveAntigravityAccount(
@@ -232,7 +184,7 @@ function antigravityModelsFromSettings(
   customModels: ReadonlyArray<string> | undefined,
   builtInModels: ReadonlyArray<ServerProviderModel> = ANTIGRAVITY_BUILT_IN_MODELS,
 ): ReadonlyArray<ServerProviderModel> {
-  return providerModelsFromSettings(builtInModels, customModels ?? [], EMPTY_CAPABILITIES);
+  return providerModelsFromSettings(builtInModels, customModels ?? [], ANTIGRAVITY_CAPABILITIES);
 }
 
 const runAntigravityProbeCommand = (
@@ -242,6 +194,24 @@ const runAntigravityProbeCommand = (
   Effect.gen(function* () {
     const command = settings.binaryPath || "agy";
     const spawnCommand = yield* resolveSpawnCommand(command, ["--help"], {
+      env: environment,
+    });
+    return yield* spawnAndCollect(
+      command,
+      ChildProcess.make(spawnCommand.command, spawnCommand.args, {
+        env: environment,
+        shell: spawnCommand.shell,
+      }),
+    );
+  });
+
+const runAntigravityModelsCommand = (
+  settings: AntigravitySettings,
+  environment: NodeJS.ProcessEnv = process.env,
+) =>
+  Effect.gen(function* () {
+    const command = settings.binaryPath || "agy";
+    const spawnCommand = yield* resolveSpawnCommand(command, ["models"], {
       env: environment,
     });
     return yield* spawnAndCollect(
@@ -344,6 +314,20 @@ export const checkAntigravityProviderStatus = Effect.fn("checkAntigravityProvide
       });
     }
 
+    const modelsProbeResult = yield* runAntigravityModelsCommand(settings, environment).pipe(
+      Effect.timeoutOption(VERSION_PROBE_TIMEOUT_MS),
+      Effect.result,
+    );
+    const discoveredModels =
+      Result.isSuccess(modelsProbeResult) &&
+      Option.isSome(modelsProbeResult.success) &&
+      modelsProbeResult.success.value.code === 0
+        ? parseAntigravityModels(
+            `${modelsProbeResult.success.value.stdout}\n${modelsProbeResult.success.value.stderr}`,
+          )
+        : ANTIGRAVITY_BUILT_IN_MODELS;
+    const finalModels = antigravityModelsFromSettings(settings.customModels, discoveredModels);
+
     const antigravityStatus: ServerProviderAntigravityStatus = {
       account: {
         email: account.email ?? null,
@@ -355,7 +339,7 @@ export const checkAntigravityProviderStatus = Effect.fn("checkAntigravityProvide
         version: version ?? null,
         installed: true,
         status: "ready",
-        modelsCount: models.length,
+        modelsCount: finalModels.length,
       },
       rateLimits: {
         groups: [
@@ -391,7 +375,7 @@ export const checkAntigravityProviderStatus = Effect.fn("checkAntigravityProvide
       presentation: ANTIGRAVITY_PRESENTATION,
       enabled: settings.enabled,
       checkedAt,
-      models,
+      models: finalModels,
       probe: {
         installed: true,
         version,

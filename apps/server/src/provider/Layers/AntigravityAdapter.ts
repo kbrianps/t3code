@@ -25,6 +25,7 @@ import * as SynchronizedRef from "effect/SynchronizedRef";
 import * as Semaphore from "effect/Semaphore";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
+import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
 
 import {
@@ -204,16 +205,15 @@ export function makeAntigravityAdapter(
           const sessionScope = yield* Scope.make();
           const createdAt = yield* nowIso;
 
+          const isTargetInstance = input.modelSelection?.instanceId === boundInstanceId;
           const session: ProviderSession = {
             threadId,
             status: "ready",
             provider: PROVIDER,
             providerInstanceId: boundInstanceId,
             runtimeMode: input.runtimeMode,
-            model:
-              input.modelSelection?.instanceId === boundInstanceId
-                ? input.modelSelection.model
-                : undefined,
+            model: isTargetInstance ? input.modelSelection?.model : undefined,
+            options: isTargetInstance ? input.modelSelection?.options : undefined,
             createdAt,
             updatedAt: createdAt,
           };
@@ -310,8 +310,14 @@ export function makeAntigravityAdapter(
             args.push("--model", selectedModel);
           }
 
-          if (settings.effort) {
-            args.push("--effort", settings.effort);
+          const selectedEffort =
+            input.modelSelection?.instanceId === boundInstanceId
+              ? getModelSelectionStringOptionValue(input.modelSelection, "effort")
+              : undefined;
+          const effectiveEffort = selectedEffort || settings.effort;
+
+          if (effectiveEffort) {
+            args.push("--effort", effectiveEffort);
           }
 
           if (ctx.antigravityConversationId) {

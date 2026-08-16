@@ -9,9 +9,50 @@ import { AntigravitySettings } from "@t3tools/contracts";
 import {
   buildInitialAntigravityProviderSnapshot,
   checkAntigravityProviderStatus,
+  parseAntigravityModels,
 } from "./AntigravityProvider.ts";
 
 const decodeAntigravitySettings = Schema.decodeSync(AntigravitySettings);
+
+describe("parseAntigravityModels", () => {
+  it("normalizes and deduplicates model list with effort suffixes", () => {
+    const rawOutput = [
+      "gemini-3.7-flash-high     Gemini 3.7 Flash (High)",
+      "gemini-3.7-flash-medium   Gemini 3.7 Flash (Medium)",
+      "gemini-3.7-flash-low      Gemini 3.7 Flash (Low)",
+      "gemini-3.6-flash-high     Gemini 3.6 Flash (High)",
+      "gemini-3.6-flash-medium   Gemini 3.6 Flash (Medium)",
+      "gemini-3.6-flash-low      Gemini 3.6 Flash (Low)",
+      "claude-sonnet-4-6         Claude Sonnet 4.6 (Thinking)",
+      "gpt-oss-120b-medium       GPT-OSS 120B (Medium)",
+    ].join("\n");
+
+    const models = parseAntigravityModels(rawOutput);
+
+    expect(models.map((m) => m.slug)).toEqual([
+      "gemini-3.7-flash",
+      "gemini-3.6-flash",
+      "claude-sonnet-4-6",
+      "gpt-oss-120b",
+    ]);
+
+    expect(models.map((m) => m.name)).toEqual([
+      "Gemini 3.7 Flash",
+      "Gemini 3.6 Flash",
+      "Claude Sonnet 4.6 (Thinking)",
+      "GPT-OSS 120B",
+    ]);
+
+    for (const model of models) {
+      const effortOption = model.capabilities?.optionDescriptors?.find((d) => d.id === "effort");
+      expect(effortOption).toBeDefined();
+      expect(effortOption?.type).toBe("select");
+      if (effortOption?.type === "select") {
+        expect(effortOption.options.map((o) => o.id)).toEqual(["low", "medium", "high"]);
+      }
+    }
+  });
+});
 
 describe("buildInitialAntigravityProviderSnapshot", () => {
   it.effect("returns a disabled snapshot when settings.enabled is false", () =>
