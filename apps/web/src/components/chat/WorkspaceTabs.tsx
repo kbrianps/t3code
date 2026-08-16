@@ -155,10 +155,10 @@ function ServerThreadTabItem({
                   aria-haspopup={isActive ? "menu" : undefined}
                   onClick={handleActivationClick}
                   className={cn(
-                    "max-w-44 ps-[8.5px] text-xs font-normal",
+                    "max-w-44 ps-[8.5px] text-xs",
                     isActive
-                      ? "bg-accent/80 font-medium text-foreground ring-1 ring-ring/30"
-                      : "opacity-85 hover:opacity-100 hover:bg-accent/50",
+                      ? "bg-accent font-medium text-foreground ring-1 ring-ring/40 shadow-xs"
+                      : "text-foreground",
                   )}
                 >
                   <ProjectFavicon
@@ -186,7 +186,7 @@ function ServerThreadTabItem({
           onClick={onClose}
           className={cn(
             "text-muted-foreground hover:text-foreground",
-            isActive ? "bg-accent/80 ring-1 ring-ring/30" : "opacity-85 hover:opacity-100",
+            isActive && "bg-accent ring-1 ring-ring/40 shadow-xs",
           )}
         >
           <X className="size-3.5" />
@@ -457,7 +457,6 @@ export function WorkspaceTabs({
     >
       <ScrollArea
         hideScrollbars
-        scrollFade
         className="h-full min-w-0 flex-1 rounded-none"
         data-workspace-tab-list=""
       >
@@ -476,10 +475,10 @@ export function WorkspaceTabs({
                   data-tab-key="new-thread"
                   onClick={onNewTab}
                   className={cn(
-                    "shrink-0 ps-[8.5px] font-normal text-xs [-webkit-app-region:no-drag]",
+                    "shrink-0 ps-[8.5px] text-xs font-normal [-webkit-app-region:no-drag]",
                     isDraftActive
-                      ? "bg-accent/80 font-medium text-foreground ring-1 ring-ring/30"
-                      : "opacity-85 hover:opacity-100 hover:bg-accent/50",
+                      ? "bg-accent font-medium text-foreground ring-1 ring-ring/40 shadow-xs"
+                      : "text-foreground",
                   )}
                 >
                   <Plus className="size-3.5 shrink-0" />
