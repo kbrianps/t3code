@@ -13,11 +13,12 @@ Este documento consolida o estado atual do desenvolvimento, decisões arquitetur
 
 ## 🌿 Branches e Pull Requests
 
-| Branch                             | PR / Status              | Descrição                                                                                  |
-| ---------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------ |
-| `t3code-enhanced`                  | Branch Principal do Fork | Branch consolidada com todas as melhorias e customizações                                  |
-| `feat/turn-completion-sound`       | **PR #7066**             | Sons de notificação de conclusão e erro configuráveis com presets e preview                |
-| `fix/thread-titlebar-actions-menu` | **PR #7067**             | Menu de contexto na barra superior/abas para ocultar/exibir ações rápidas com persistência |
+| Branch                                | PR / Status              | Descrição                                                                                  |
+| ------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------ |
+| `t3code-enhanced`                     | Branch Principal do Fork | Branch consolidada com todas as melhorias e customizações                                  |
+| `feat/turn-completion-sound`          | **PR #7066**             | Sons de notificação de conclusão e erro configuráveis com presets e preview                |
+| `fix/thread-titlebar-actions-menu`    | **PR #7067**             | Menu de contexto na barra superior/abas para ocultar/exibir ações rápidas com persistência |
+| `feat/model-picker-reorder-providers` | **PR #7214**             | Reorganização de ícones de provedores por arrastar e soltar (drag-and-drop) no chat        |
 
 ---
 
