@@ -114,21 +114,14 @@ function CodexRateLimitsCard({
 
   return (
     <Card className="gap-0 rounded-xl border-border/70 bg-card/35 p-4 shadow-none before:rounded-[calc(var(--radius-xl)-1px)]">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          {showProviderLabel ? (
-            <h2 className="text-sm font-medium text-foreground">
-              {provider.displayName ?? "Codex"}
-            </h2>
-          ) : null}
+      {showProviderLabel ? (
+        <div className="mb-4">
+          <h2 className="text-sm font-medium text-foreground">{provider.displayName ?? "Codex"}</h2>
         </div>
-        <span className="shrink-0 text-right text-xs text-muted-foreground">
-          Updated {formatStatusTimestampWithTimeZone(provider.checkedAt)}
-        </span>
-      </div>
+      ) : null}
 
       {rateLimits?.primary || rateLimits?.secondary ? (
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
           {rateLimits.limitName ? (
             <span className="text-[11px] text-muted-foreground">{rateLimits.limitName}</span>
           ) : null}
@@ -158,7 +151,7 @@ function CodexRateLimitsCard({
           ) : null}
         </div>
       ) : (
-        <p className="mt-4 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Rate limit data is not available yet. Click Update to try again.
         </p>
       )}
@@ -177,21 +170,16 @@ function ClaudeRateLimitsCard({
 
   return (
     <Card className="gap-0 rounded-xl border-border/70 bg-card/35 p-4 shadow-none before:rounded-[calc(var(--radius-xl)-1px)]">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          {showProviderLabel ? (
-            <h2 className="text-sm font-medium text-foreground">
-              {provider.displayName ?? "Claude"}
-            </h2>
-          ) : null}
+      {showProviderLabel ? (
+        <div className="mb-4">
+          <h2 className="text-sm font-medium text-foreground">
+            {provider.displayName ?? "Claude"}
+          </h2>
         </div>
-        <span className="shrink-0 text-right text-xs text-muted-foreground">
-          Updated {formatStatusTimestampWithTimeZone(provider.checkedAt)}
-        </span>
-      </div>
+      ) : null}
 
       {rateLimits?.currentSession || rateLimits?.currentWeek ? (
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
           {rateLimits.currentSession ? (
             <RateLimitRow
               label="Current session"
@@ -221,7 +209,7 @@ function ClaudeRateLimitsCard({
           ) : null}
         </div>
       ) : (
-        <p className="mt-4 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Claude rate limit data is not available yet. Click Update to try again.
         </p>
       )}
@@ -269,20 +257,15 @@ function AntigravityRateLimitsCard({
 
   return (
     <Card className="gap-0 rounded-xl border-border/70 bg-card/35 p-4 shadow-none before:rounded-[calc(var(--radius-xl)-1px)]">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          {showProviderLabel ? (
-            <h2 className="text-sm font-medium text-foreground">
-              {provider.displayName ?? "Antigravity"}
-            </h2>
-          ) : null}
+      {showProviderLabel ? (
+        <div className="mb-4">
+          <h2 className="text-sm font-medium text-foreground">
+            {provider.displayName ?? "Antigravity"}
+          </h2>
         </div>
-        <span className="shrink-0 text-right text-xs text-muted-foreground">
-          Updated {formatStatusTimestampWithTimeZone(provider.checkedAt)}
-        </span>
-      </div>
+      ) : null}
 
-      <div className="mt-4 flex flex-col gap-5">
+      <div className="flex flex-col gap-5">
         {groups.map((group) => (
           <div key={group.groupName} className="flex flex-col gap-2">
             <div>
@@ -462,15 +445,22 @@ export function StatusPage() {
                 </div>
               )}
 
-              <a
-                className="inline-flex items-center gap-1.5 self-start text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                href={CODEX_USAGE_URL}
-                rel="noreferrer"
-                target="_blank"
-              >
-                View up-to-date rate limits and credits
-                <ExternalLinkIcon className="size-3" />
-              </a>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <a
+                  className="inline-flex items-center gap-1.5 underline-offset-4 hover:text-foreground hover:underline"
+                  href={CODEX_USAGE_URL}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  View up-to-date rate limits and credits
+                  <ExternalLinkIcon className="size-3" />
+                </a>
+                {codexProviders[0]?.checkedAt ? (
+                  <span className="text-[11px] text-muted-foreground/70">
+                    Updated {formatStatusTimestampWithTimeZone(codexProviders[0].checkedAt)}
+                  </span>
+                ) : null}
+              </div>
             </section>
 
             <section className="flex flex-col gap-3">
@@ -497,15 +487,22 @@ export function StatusPage() {
                 </div>
               )}
 
-              <a
-                className="inline-flex items-center gap-1.5 self-start text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                href={CLAUDE_USAGE_URL}
-                rel="noreferrer"
-                target="_blank"
-              >
-                View up-to-date usage and rate limits
-                <ExternalLinkIcon className="size-3" />
-              </a>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <a
+                  className="inline-flex items-center gap-1.5 underline-offset-4 hover:text-foreground hover:underline"
+                  href={CLAUDE_USAGE_URL}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  View up-to-date usage and rate limits
+                  <ExternalLinkIcon className="size-3" />
+                </a>
+                {claudeProviders[0]?.checkedAt ? (
+                  <span className="text-[11px] text-muted-foreground/70">
+                    Updated {formatStatusTimestampWithTimeZone(claudeProviders[0].checkedAt)}
+                  </span>
+                ) : null}
+              </div>
             </section>
 
             <section className="flex flex-col gap-3">
@@ -532,15 +529,22 @@ export function StatusPage() {
                 </div>
               )}
 
-              <a
-                className="inline-flex items-center gap-1.5 self-start text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                href={ANTIGRAVITY_USAGE_URL}
-                rel="noreferrer"
-                target="_blank"
-              >
-                View up-to-date quotas and rate limits
-                <ExternalLinkIcon className="size-3" />
-              </a>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <a
+                  className="inline-flex items-center gap-1.5 underline-offset-4 hover:text-foreground hover:underline"
+                  href={ANTIGRAVITY_USAGE_URL}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  View up-to-date quotas and rate limits
+                  <ExternalLinkIcon className="size-3" />
+                </a>
+                {antigravityProviders[0]?.checkedAt ? (
+                  <span className="text-[11px] text-muted-foreground/70">
+                    Updated {formatStatusTimestampWithTimeZone(antigravityProviders[0].checkedAt)}
+                  </span>
+                ) : null}
+              </div>
             </section>
           </div>
         </ScrollArea>
