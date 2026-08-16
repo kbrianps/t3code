@@ -171,10 +171,8 @@ function ServerThreadTabItem({
                   {isUnread ? (
                     <span
                       aria-hidden
-                      className="pointer-events-none absolute -top-1 -right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-semibold tabular-nums text-white shadow-xs"
-                    >
-                      1
-                    </span>
+                      className="pointer-events-none absolute -top-0.5 -right-0.5 size-2 rounded-full bg-destructive shadow-xs ring-1 ring-background"
+                    />
                   ) : null}
                 </Button>
               }
