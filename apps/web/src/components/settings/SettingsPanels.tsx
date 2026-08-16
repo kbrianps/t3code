@@ -2321,6 +2321,33 @@ export function GeneralSettingsPanel() {
         />
 
         <SettingsRow
+          {...searchableSetting("sound-notifications")}
+          description="Play a subtle sound when an agent completes a turn."
+          resetAction={
+            settings.soundNotificationsEnabled !==
+            DEFAULT_UNIFIED_SETTINGS.soundNotificationsEnabled ? (
+              <SettingResetButton
+                label="turn completion chime"
+                onClick={() =>
+                  updateSettings({
+                    soundNotificationsEnabled: DEFAULT_UNIFIED_SETTINGS.soundNotificationsEnabled,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Switch
+              checked={settings.soundNotificationsEnabled}
+              onCheckedChange={(checked) =>
+                updateSettings({ soundNotificationsEnabled: Boolean(checked) })
+              }
+              aria-label="Play sound when agent completes a turn"
+            />
+          }
+        />
+
+        <SettingsRow
           {...searchableSetting("text-generation-model")}
           description="Default model for generated text like thread titles and source control content. Source control settings can override it with a dedicated source control writer model."
           resetAction={
