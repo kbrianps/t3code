@@ -219,10 +219,34 @@ export const make = Effect.gen(function* () {
     const claudeDir = yield* resolveClaudeTranscriptDir(claudeHome);
     const codexLayout = yield* resolveCodexHomeLayout(settings.providers.codex);
 
-    return [
+    const providerLogsDir = path.join(config.stateDir, "logs", "provider");
+    const antigravityDirs: string[] = [providerLogsDir];
+
+    const defaultUserdataLogsDir = path.join(
+      NodeOS.homedir(),
+      ".t3",
+      "userdata",
+      "logs",
+      "provider",
+    );
+    if (defaultUserdataLogsDir !== providerLogsDir) {
+      const defaultExists = yield* fileSystem
+        .exists(defaultUserdataLogsDir)
+        .pipe(Effect.catchCause(() => Effect.succeed(false)));
+      if (defaultExists) {
+        antigravityDirs.push(defaultUserdataLogsDir);
+      }
+    }
+
+    const result: Array<{ provider: UsageProviderKind; dir: string }> = [
       { provider: "claude" as const, dir: claudeDir },
       { provider: "codex" as const, dir: path.join(codexLayout.sharedHomePath, "sessions") },
     ];
+    for (const dir of antigravityDirs) {
+      result.push({ provider: "antigravity" as const, dir });
+    }
+
+    return result;
   });
 
   /**
