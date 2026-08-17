@@ -18,6 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
 import * as PubSub from "effect/PubSub";
+import * as Queue from "effect/Queue";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
@@ -134,7 +135,7 @@ export function makeAntigravityAdapter(
     const boundInstanceId = options?.instanceId ?? ProviderInstanceId.make("antigravity");
     const sessions = new Map<ThreadId, AntigravitySessionContext>();
     const threadLocksRef = yield* SynchronizedRef.make(new Map<string, Semaphore.Semaphore>());
-    const runtimeEventPubSub = yield* PubSub.unbounded<ProviderRuntimeEvent>();
+    const runtimeEventQueue = yield* Queue.unbounded<ProviderRuntimeEvent>();
 
     const getThreadSemaphore = (threadId: string) =>
       SynchronizedRef.modifyEffect(threadLocksRef, (current) => {
@@ -158,7 +159,7 @@ export function makeAntigravityAdapter(
       Effect.flatMap(getThreadSemaphore(threadId), (semaphore) => semaphore.withPermit(effect));
 
     const publishEvent = (event: ProviderRuntimeEvent) =>
-      PubSub.publish(runtimeEventPubSub, event).pipe(Effect.asVoid);
+      Queue.offer(runtimeEventQueue, event).pipe(Effect.asVoid);
 
     const nowIso = Effect.map(DateTime.now, DateTime.formatIso);
 
@@ -213,7 +214,6 @@ export function makeAntigravityAdapter(
             providerInstanceId: boundInstanceId,
             runtimeMode: input.runtimeMode,
             model: isTargetInstance ? input.modelSelection?.model : undefined,
-            options: isTargetInstance ? input.modelSelection?.options : undefined,
             createdAt,
             updatedAt: createdAt,
           };
@@ -278,7 +278,7 @@ export function makeAntigravityAdapter(
           const turnStartedAt = yield* nowIso;
           const turnStartEventId = yield* nextEventId;
 
-          const turnRecord = {
+          const turnRecord: { id: TurnId; items: Array<unknown> } = {
             id: turnId,
             items: [{ prompt: input.input ?? "" }],
           };
@@ -306,15 +306,23 @@ export function makeAntigravityAdapter(
               ? input.modelSelection.model
               : undefined;
 
-          if (selectedModel) {
-            args.push("--model", selectedModel);
-          }
-
           const selectedEffort =
             input.modelSelection?.instanceId === boundInstanceId
               ? getModelSelectionStringOptionValue(input.modelSelection, "effort")
               : undefined;
-          const effectiveEffort = selectedEffort || settings.effort;
+          let effectiveEffort = selectedEffort || settings.effort;
+
+          if (selectedModel) {
+            args.push("--model", selectedModel);
+          }
+
+          // If effort is not specified and model doesn't embed it in the slug, default to "high"
+          if (
+            !effectiveEffort &&
+            (!selectedModel || !selectedModel.match(/-(low|medium|high)$/i))
+          ) {
+            effectiveEffort = "high";
+          }
 
           if (effectiveEffort) {
             args.push("--effort", effectiveEffort);
@@ -362,9 +370,6 @@ export function makeAntigravityAdapter(
             cwd: ctx.cwd,
             env: processEnv,
             shell: spawnCommand.shell,
-            stdin: {
-              stream: Stream.empty,
-            },
           });
 
           const processHandle = yield* childProcessSpawner.spawn(command).pipe(
@@ -401,8 +406,22 @@ export function makeAntigravityAdapter(
             kill: () => Effect.asVoid(Effect.ignore(processHandle.kill())),
           };
 
+          const stderrChunks: Array<string> = [];
+          let hasEmittedText = false;
+          let lastResultError: string | undefined;
+
           const monitorEffect = Effect.gen(function* () {
-            yield* Stream.runDrain(processHandle.stderr).pipe(Effect.forkChild);
+            yield* Stream.runForEach(
+              processHandle.stderr.pipe(Stream.decodeText(), Stream.splitLines),
+              (line) =>
+                Effect.sync(() => {
+                  const trimmed = line.trim();
+                  if (trimmed) {
+                    stderrChunks.push(trimmed);
+                  }
+                }),
+            ).pipe(Effect.forkIn(ctx.scope));
+
             const stdoutLines = processHandle.stdout.pipe(Stream.decodeText(), Stream.splitLines);
 
             yield* Stream.runForEach(stdoutLines, (line) =>
@@ -444,7 +463,8 @@ export function makeAntigravityAdapter(
                     turnRecord.items.push(step);
 
                     if (step.step_type === "agent_response") {
-                      if (typeof step.text_delta === "string") {
+                      if (typeof step.text_delta === "string" && step.text_delta.length > 0) {
+                        hasEmittedText = true;
                         yield* publishEvent({
                           ...stamp,
                           provider: PROVIDER,
@@ -542,21 +562,55 @@ export function makeAntigravityAdapter(
                     if (typeof resultObj.conversation_id === "string") {
                       ctx.antigravityConversationId = resultObj.conversation_id;
                     }
+                    if (resultObj.status === "ERROR" && typeof resultObj.error === "string") {
+                      lastResultError = resultObj.error;
+                      yield* publishEvent({
+                        ...stamp,
+                        provider: PROVIDER,
+                        threadId,
+                        turnId,
+                        type: "content.delta",
+                        payload: {
+                          streamKind: "assistant_text",
+                          delta: `\n\n**Antigravity Error**: ${resultObj.error}\n`,
+                        },
+                      });
+                    } else if (
+                      resultObj.status === "SUCCESS" &&
+                      typeof resultObj.response === "string" &&
+                      !hasEmittedText &&
+                      resultObj.response.length > 0
+                    ) {
+                      hasEmittedText = true;
+                      yield* publishEvent({
+                        ...stamp,
+                        provider: PROVIDER,
+                        threadId,
+                        turnId,
+                        type: "content.delta",
+                        payload: {
+                          streamKind: "assistant_text",
+                          delta: resultObj.response,
+                        },
+                      });
+                    }
                   }
                 }
               }),
             );
 
             const exitCode = yield* processHandle.exitCode;
-            const isSuccess = exitCode === 0;
+            const isSuccess = exitCode === 0 && !lastResultError;
+            const errorDetail =
+              lastResultError ||
+              (stderrChunks.length > 0 ? stderrChunks.join("\n") : undefined) ||
+              `Antigravity CLI process exited with code ${exitCode}`;
 
             yield* withThreadLock(
               threadId,
               Effect.gen(function* () {
                 if (ctx.activeTurnId !== turnId) return;
-                if (ctx.activeProcess === processHandle) {
-                  ctx.activeProcess = undefined;
-                }
+                ctx.activeProcess = undefined;
                 ctx.activeTurnId = undefined;
 
                 const completedStamp = yield* makeEventStamp();
@@ -568,9 +622,7 @@ export function makeAntigravityAdapter(
                   type: "turn.completed",
                   payload: {
                     state: isSuccess ? "completed" : "failed",
-                    ...(!isSuccess
-                      ? { errorMessage: `Antigravity CLI process exited with code ${exitCode}` }
-                      : {}),
+                    ...(!isSuccess ? { errorMessage: errorDetail } : {}),
                   },
                 });
               }),
@@ -584,8 +636,8 @@ export function makeAntigravityAdapter(
                     return yield* Effect.failCause(cause);
                   }
                   if (ctx.activeTurnId !== turnId) return;
-                  if (ctx.activeProcess === processHandle) {
-                    yield* processHandle.kill();
+                  if (ctx.activeProcess) {
+                    yield* ctx.activeProcess.kill();
                     ctx.activeProcess = undefined;
                   }
                   ctx.activeTurnId = undefined;
@@ -610,7 +662,7 @@ export function makeAntigravityAdapter(
             ),
           );
 
-          yield* Effect.forkChild(monitorEffect);
+          yield* Effect.forkIn(monitorEffect, ctx.scope);
 
           return {
             threadId,
@@ -747,14 +799,14 @@ export function makeAntigravityAdapter(
 
     yield* Effect.addFinalizer(() =>
       Effect.ignore(stopAll()).pipe(
-        Effect.tap(() => PubSub.shutdown(runtimeEventPubSub)),
+        Effect.tap(() => Queue.shutdown(runtimeEventQueue)),
         Effect.tap(() =>
           managedNativeEventLogger ? managedNativeEventLogger.close() : Effect.void,
         ),
       ),
     );
 
-    const streamEvents = Stream.fromPubSub(runtimeEventPubSub);
+    const streamEvents = Stream.fromQueue(runtimeEventQueue);
 
     return {
       provider: PROVIDER,
