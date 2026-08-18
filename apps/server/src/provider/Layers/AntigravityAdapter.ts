@@ -18,6 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
 import * as PubSub from "effect/PubSub";
+import * as Queue from "effect/Queue";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
@@ -37,6 +38,7 @@ import {
 } from "../Errors.ts";
 import { type AntigravityAdapterShape } from "../Services/AntigravityAdapter.ts";
 import { type EventNdjsonLogger, makeEventNdjsonLogger } from "./EventNdjsonLogger.ts";
+import { resolveAntigravityBinary } from "./AntigravityProvider.ts";
 
 const PROVIDER = ProviderDriverKind.make("antigravity");
 const decodeJsonExit = Schema.decodeUnknownExit(Schema.fromJsonString(Schema.Unknown));
@@ -134,7 +136,7 @@ export function makeAntigravityAdapter(
     const boundInstanceId = options?.instanceId ?? ProviderInstanceId.make("antigravity");
     const sessions = new Map<ThreadId, AntigravitySessionContext>();
     const threadLocksRef = yield* SynchronizedRef.make(new Map<string, Semaphore.Semaphore>());
-    const runtimeEventPubSub = yield* PubSub.unbounded<ProviderRuntimeEvent>();
+    const runtimeEventQueue = yield* Queue.unbounded<ProviderRuntimeEvent>();
 
     const getThreadSemaphore = (threadId: string) =>
       SynchronizedRef.modifyEffect(threadLocksRef, (current) => {
@@ -158,7 +160,7 @@ export function makeAntigravityAdapter(
       Effect.flatMap(getThreadSemaphore(threadId), (semaphore) => semaphore.withPermit(effect));
 
     const publishEvent = (event: ProviderRuntimeEvent) =>
-      PubSub.publish(runtimeEventPubSub, event).pipe(Effect.asVoid);
+      Queue.offer(runtimeEventQueue, event).pipe(Effect.asVoid);
 
     const nowIso = Effect.map(DateTime.now, DateTime.formatIso);
 
@@ -213,7 +215,6 @@ export function makeAntigravityAdapter(
             providerInstanceId: boundInstanceId,
             runtimeMode: input.runtimeMode,
             model: isTargetInstance ? input.modelSelection?.model : undefined,
-            options: isTargetInstance ? input.modelSelection?.options : undefined,
             createdAt,
             updatedAt: createdAt,
           };
@@ -278,7 +279,7 @@ export function makeAntigravityAdapter(
           const turnStartedAt = yield* nowIso;
           const turnStartEventId = yield* nextEventId;
 
-          const turnRecord = {
+          const turnRecord: { id: TurnId; items: Array<unknown> } = {
             id: turnId,
             items: [{ prompt: input.input ?? "" }],
           };
@@ -294,8 +295,8 @@ export function makeAntigravityAdapter(
             payload: {},
           });
 
-          const binary = settings.binaryPath || "agy";
-          const args = ["--output-format", "stream-json"];
+          const binary = resolveAntigravityBinary(settings.binaryPath, processEnv);
+          const args = ["--output-format", "stream-json", "--print-timeout", "24h"];
 
           if (settings.dangerouslySkipPermissions !== false) {
             args.push("--dangerously-skip-permissions");
@@ -306,15 +307,23 @@ export function makeAntigravityAdapter(
               ? input.modelSelection.model
               : undefined;
 
-          if (selectedModel) {
-            args.push("--model", selectedModel);
-          }
-
           const selectedEffort =
             input.modelSelection?.instanceId === boundInstanceId
               ? getModelSelectionStringOptionValue(input.modelSelection, "effort")
               : undefined;
-          const effectiveEffort = selectedEffort || settings.effort;
+          let effectiveEffort = selectedEffort || settings.effort;
+
+          if (selectedModel) {
+            args.push("--model", selectedModel);
+          }
+
+          // If effort is not specified and model doesn't embed it in the slug, default to "medium"
+          if (
+            !effectiveEffort &&
+            (!selectedModel || !selectedModel.match(/-(low|medium|high)$/i))
+          ) {
+            effectiveEffort = "medium";
+          }
 
           if (effectiveEffort) {
             args.push("--effort", effectiveEffort);
@@ -362,9 +371,6 @@ export function makeAntigravityAdapter(
             cwd: ctx.cwd,
             env: processEnv,
             shell: spawnCommand.shell,
-            stdin: {
-              stream: Stream.empty,
-            },
           });
 
           const processHandle = yield* childProcessSpawner.spawn(command).pipe(
@@ -401,8 +407,22 @@ export function makeAntigravityAdapter(
             kill: () => Effect.asVoid(Effect.ignore(processHandle.kill())),
           };
 
+          const stderrChunks: Array<string> = [];
+          let hasEmittedText = false;
+          let lastResultError: string | undefined;
+
           const monitorEffect = Effect.gen(function* () {
-            yield* Stream.runDrain(processHandle.stderr).pipe(Effect.forkChild);
+            yield* Stream.runForEach(
+              processHandle.stderr.pipe(Stream.decodeText(), Stream.splitLines),
+              (line) =>
+                Effect.sync(() => {
+                  const trimmed = line.trim();
+                  if (trimmed) {
+                    stderrChunks.push(trimmed);
+                  }
+                }),
+            ).pipe(Effect.forkIn(ctx.scope));
+
             const stdoutLines = processHandle.stdout.pipe(Stream.decodeText(), Stream.splitLines);
 
             yield* Stream.runForEach(stdoutLines, (line) =>
@@ -444,7 +464,8 @@ export function makeAntigravityAdapter(
                     turnRecord.items.push(step);
 
                     if (step.step_type === "agent_response") {
-                      if (typeof step.text_delta === "string") {
+                      if (typeof step.text_delta === "string" && step.text_delta.length > 0) {
+                        hasEmittedText = true;
                         yield* publishEvent({
                           ...stamp,
                           provider: PROVIDER,
@@ -467,17 +488,19 @@ export function makeAntigravityAdapter(
                         const count = (v: unknown): number | undefined =>
                           typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : undefined;
                         const usedTokens = count(usage.total_tokens) ?? 0;
+                        const inputTokens = count(usage.input_tokens);
+                        const outputTokens = count(usage.output_tokens);
+                        const reasoningOutputTokens = count(usage.thinking_tokens);
+                        const cachedInputTokens = count(
+                          usage.cache_read_tokens ?? usage.cached_tokens,
+                        );
                         const usageSnapshot: ThreadTokenUsageSnapshot = {
                           usedTokens,
-                          ...(count(usage.input_tokens) !== undefined
-                            ? { inputTokens: count(usage.input_tokens) }
-                            : {}),
-                          ...(count(usage.output_tokens) !== undefined
-                            ? { outputTokens: count(usage.output_tokens) }
-                            : {}),
-                          ...(count(usage.thinking_tokens) !== undefined
-                            ? { reasoningOutputTokens: count(usage.thinking_tokens) }
-                            : {}),
+                          maxTokens: 1_000_000,
+                          ...(inputTokens !== undefined ? { inputTokens } : {}),
+                          ...(outputTokens !== undefined ? { outputTokens } : {}),
+                          ...(reasoningOutputTokens !== undefined ? { reasoningOutputTokens } : {}),
+                          ...(cachedInputTokens !== undefined ? { cachedInputTokens } : {}),
                           compactsAutomatically: true,
                         };
                         yield* publishEvent({
@@ -514,7 +537,12 @@ export function makeAntigravityAdapter(
                             ...(toolInfo ? { data: toolInfo } : {}),
                           },
                         });
-                      } else if (step.state === "DONE") {
+                      } else if (
+                        step.state === "DONE" ||
+                        step.state === "ERROR" ||
+                        step.state === "CANCELLED" ||
+                        step.state === "FAILED"
+                      ) {
                         yield* publishEvent({
                           ...stamp,
                           provider: PROVIDER,
@@ -524,10 +552,30 @@ export function makeAntigravityAdapter(
                           type: "item.completed",
                           payload: {
                             itemType: toolItemType,
-                            status: "completed",
+                            status: step.state === "DONE" ? "completed" : "failed",
                             title: step.tool_name,
                             ...(toolDetail ? { detail: toolDetail } : {}),
                             ...(toolInfo ? { data: toolInfo } : {}),
+                          },
+                        });
+                      }
+                    } else if (step.step_type === "error_message") {
+                      const errorText =
+                        typeof step.error === "string"
+                          ? step.error
+                          : typeof step.content === "string"
+                            ? step.content
+                            : undefined;
+                      if (errorText) {
+                        yield* publishEvent({
+                          ...stamp,
+                          provider: PROVIDER,
+                          threadId,
+                          turnId,
+                          type: "content.delta",
+                          payload: {
+                            streamKind: "assistant_text",
+                            delta: `\n\n> ⚠️ **Antigravity Notice**: ${errorText}\n\n`,
                           },
                         });
                       }
@@ -542,21 +590,60 @@ export function makeAntigravityAdapter(
                     if (typeof resultObj.conversation_id === "string") {
                       ctx.antigravityConversationId = resultObj.conversation_id;
                     }
+                    if (resultObj.status === "ERROR" && typeof resultObj.error === "string") {
+                      lastResultError = resultObj.error;
+                      const formattedError =
+                        resultObj.error === "timeout waiting for response"
+                          ? "timeout waiting for response (synchronous tool execution exceeded time limit; run long commands/builds in background with WaitMsBeforeAsync or manage_task)"
+                          : resultObj.error;
+                      yield* publishEvent({
+                        ...stamp,
+                        provider: PROVIDER,
+                        threadId,
+                        turnId,
+                        type: "content.delta",
+                        payload: {
+                          streamKind: "assistant_text",
+                          delta: `\n\n**Antigravity Error**: ${formattedError}\n`,
+                        },
+                      });
+                    }
+                    if (
+                      typeof resultObj.response === "string" &&
+                      !hasEmittedText &&
+                      resultObj.response.length > 0
+                    ) {
+                      hasEmittedText = true;
+                      yield* publishEvent({
+                        ...stamp,
+                        provider: PROVIDER,
+                        threadId,
+                        turnId,
+                        type: "content.delta",
+                        payload: {
+                          streamKind: "assistant_text",
+                          delta: resultObj.response,
+                        },
+                      });
+                    }
                   }
                 }
               }),
             );
 
             const exitCode = yield* processHandle.exitCode;
-            const isSuccess = exitCode === 0;
+            const isSuccess =
+              exitCode === 0 && (!lastResultError || hasEmittedText || turnRecord.items.length > 0);
+            const errorDetail =
+              (exitCode !== 0 ? lastResultError : undefined) ||
+              (stderrChunks.length > 0 ? stderrChunks.join("\n") : undefined) ||
+              (!isSuccess ? `Antigravity CLI process exited with code ${exitCode}` : undefined);
 
             yield* withThreadLock(
               threadId,
               Effect.gen(function* () {
                 if (ctx.activeTurnId !== turnId) return;
-                if (ctx.activeProcess === processHandle) {
-                  ctx.activeProcess = undefined;
-                }
+                ctx.activeProcess = undefined;
                 ctx.activeTurnId = undefined;
 
                 const completedStamp = yield* makeEventStamp();
@@ -568,9 +655,7 @@ export function makeAntigravityAdapter(
                   type: "turn.completed",
                   payload: {
                     state: isSuccess ? "completed" : "failed",
-                    ...(!isSuccess
-                      ? { errorMessage: `Antigravity CLI process exited with code ${exitCode}` }
-                      : {}),
+                    ...(!isSuccess ? { errorMessage: errorDetail } : {}),
                   },
                 });
               }),
@@ -584,8 +669,8 @@ export function makeAntigravityAdapter(
                     return yield* Effect.failCause(cause);
                   }
                   if (ctx.activeTurnId !== turnId) return;
-                  if (ctx.activeProcess === processHandle) {
-                    yield* processHandle.kill();
+                  if (ctx.activeProcess) {
+                    yield* ctx.activeProcess.kill();
                     ctx.activeProcess = undefined;
                   }
                   ctx.activeTurnId = undefined;
@@ -610,7 +695,7 @@ export function makeAntigravityAdapter(
             ),
           );
 
-          yield* Effect.forkChild(monitorEffect);
+          yield* Effect.forkIn(monitorEffect, ctx.scope);
 
           return {
             threadId,
@@ -747,14 +832,14 @@ export function makeAntigravityAdapter(
 
     yield* Effect.addFinalizer(() =>
       Effect.ignore(stopAll()).pipe(
-        Effect.tap(() => PubSub.shutdown(runtimeEventPubSub)),
+        Effect.tap(() => Queue.shutdown(runtimeEventQueue)),
         Effect.tap(() =>
           managedNativeEventLogger ? managedNativeEventLogger.close() : Effect.void,
         ),
       ),
     );
 
-    const streamEvents = Stream.fromPubSub(runtimeEventPubSub);
+    const streamEvents = Stream.fromQueue(runtimeEventQueue);
 
     return {
       provider: PROVIDER,

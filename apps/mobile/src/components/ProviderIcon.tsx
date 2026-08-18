@@ -1,5 +1,5 @@
-import { useColorScheme } from "react-native";
 import { Path, Svg } from "react-native-svg";
+import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
 
 type ProviderIconProps = {
   readonly provider: string | null | undefined;
@@ -7,7 +7,8 @@ type ProviderIconProps = {
 };
 
 export function ProviderIcon(props: ProviderIconProps) {
-  const isDarkMode = useColorScheme() === "dark";
+  const { themeAppearance } = useAppearancePreferences();
+  const isDarkMode = themeAppearance === "dark";
   const size = props.size ?? 16;
   const mono = isDarkMode ? "#e5e5e5" : "#171717";
 
@@ -25,10 +26,7 @@ export function ProviderIcon(props: ProviderIconProps) {
   if (props.provider === "antigravity") {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-        <Path
-          fill="#1A73E8"
-          d="M12 24C12 17.3726 17.3726 12 24 12C17.3726 12 12 6.62742 12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 17.3726 12 24Z"
-        />
+        <Path fill="#4285F4" d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
       </Svg>
     );
   }

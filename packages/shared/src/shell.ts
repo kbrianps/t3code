@@ -123,7 +123,12 @@ function resolveSpawnExecutableWithNode(
     return candidates.find(isExecutable);
   }
 
-  for (const pathEntry of (readEnvPath(env) ?? "").split(pathDelimiterForPlatform(platform))) {
+  const pathEntries = [
+    ...(readEnvPath(env) ?? "").split(pathDelimiterForPlatform(platform)),
+    ...(platform === "win32" ? resolveKnownWindowsCliDirs(env) : []),
+  ];
+
+  for (const pathEntry of pathEntries) {
     const normalizedPathEntry = stripWrappingQuotes(pathEntry.trim());
     if (normalizedPathEntry.length === 0) continue;
     for (const candidate of candidates) {
@@ -608,6 +613,14 @@ const resolveCommandPathForPlatform = Effect.fn("shell.resolveCommandPathForPlat
       pathEntries.push(pathEntry);
     }
   }
+  if (platform === "win32") {
+    for (const entry of resolveKnownWindowsCliDirs(env)) {
+      const pathEntry = stripWrappingQuotes(entry.trim());
+      if (pathEntry.length > 0 && !pathEntries.includes(pathEntry)) {
+        pathEntries.push(pathEntry);
+      }
+    }
+  }
 
   for (const pathEntry of pathEntries) {
     for (const candidate of commandCandidates) {
@@ -680,10 +693,22 @@ export function resolveKnownWindowsCliDirs(env: NodeJS.ProcessEnv): ReadonlyArra
 
   return [
     ...(appData ? [`${appData}\\npm`] : []),
-    ...(localAppData ? [`${localAppData}\\Programs\\nodejs`, `${localAppData}\\Volta\\bin`] : []),
+    ...(localAppData
+      ? [
+          `${localAppData}\\Programs\\nodejs`,
+          `${localAppData}\\Volta\\bin`,
+          `${localAppData}\\agy\\bin`,
+          `${localAppData}\\Programs\\agy\\bin`,
+        ]
+      : []),
     ...(localAppData ? [`${localAppData}\\pnpm`] : []),
     ...(userProfile
-      ? [`${userProfile}\\.local\\bin`, `${userProfile}\\.bun\\bin`, `${userProfile}\\scoop\\shims`]
+      ? [
+          `${userProfile}\\.local\\bin`,
+          `${userProfile}\\.bun\\bin`,
+          `${userProfile}\\scoop\\shims`,
+          `${userProfile}\\.gemini\\antigravity-cli\\bin`,
+        ]
       : []),
   ];
 }

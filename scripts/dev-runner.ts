@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
 
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -392,6 +393,7 @@ export function createDevRunnerEnv({
 
     if (!isDesktopMode && host !== undefined) {
       output.T3CODE_HOST = host;
+      output.HOST = host;
     }
 
     if (!isDesktopMode) {
@@ -799,6 +801,18 @@ export function runDevRunnerWithInput(input: DevRunnerCliInput) {
           yield* Effect.logInfo(`[dev-runner] shared on tailnet: ${shared.url}`);
         }
       }
+    }
+
+    if (input.mode === "dev:desktop") {
+      env.T3CODE_DESKTOP_DEV = "1";
+    }
+
+    const localBinPath = NodePath.resolve(process.cwd(), "node_modules", ".bin");
+    const delimiter = process.platform === "win32" ? ";" : ":";
+    const pathKey = Object.keys(env).find((k) => k.toUpperCase() === "PATH") ?? "PATH";
+    const currentPath = env[pathKey] ?? process.env[pathKey] ?? "";
+    if (!currentPath.includes(localBinPath)) {
+      env[pathKey] = `${localBinPath}${delimiter}${currentPath}`;
     }
 
     const spawnCommand = yield* resolveSpawnCommand(

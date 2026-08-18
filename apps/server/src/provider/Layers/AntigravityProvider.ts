@@ -1,3 +1,4 @@
+import * as NodeFS from "node:fs";
 import {
   type AntigravitySettings,
   type ModelCapabilities,
@@ -187,12 +188,42 @@ function antigravityModelsFromSettings(
   return providerModelsFromSettings(builtInModels, customModels ?? [], ANTIGRAVITY_CAPABILITIES);
 }
 
+export function resolveAntigravityBinary(
+  configuredPath: string | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  if (configuredPath && configuredPath.trim().length > 0) {
+    return configuredPath.trim();
+  }
+  const localAppData = env.LOCALAPPDATA?.trim();
+  const userProfile = env.USERPROFILE?.trim();
+  const candidates = [
+    ...(localAppData
+      ? [`${localAppData}\\agy\\bin\\agy.exe`, `${localAppData}\\Programs\\agy\\bin\\agy.exe`]
+      : []),
+    ...(userProfile
+      ? [
+          `${userProfile}\\.local\\bin\\agy`,
+          `${userProfile}\\.gemini\\antigravity-cli\\bin\\agy.exe`,
+        ]
+      : []),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (NodeFS.statSync(candidate).isFile()) {
+        return candidate;
+      }
+    } catch {}
+  }
+  return "agy";
+}
+
 const runAntigravityProbeCommand = (
   settings: AntigravitySettings,
   environment: NodeJS.ProcessEnv = process.env,
 ) =>
   Effect.gen(function* () {
-    const command = settings.binaryPath || "agy";
+    const command = resolveAntigravityBinary(settings.binaryPath, environment);
     const spawnCommand = yield* resolveSpawnCommand(command, ["--help"], {
       env: environment,
     });
@@ -210,7 +241,7 @@ const runAntigravityModelsCommand = (
   environment: NodeJS.ProcessEnv = process.env,
 ) =>
   Effect.gen(function* () {
-    const command = settings.binaryPath || "agy";
+    const command = resolveAntigravityBinary(settings.binaryPath, environment);
     const spawnCommand = yield* resolveSpawnCommand(command, ["models"], {
       env: environment,
     });
@@ -328,20 +359,6 @@ export const checkAntigravityProviderStatus = Effect.fn("checkAntigravityProvide
         : ANTIGRAVITY_BUILT_IN_MODELS;
     const finalModels = antigravityModelsFromSettings(settings.customModels, discoveredModels);
 
-    const antigravityStatus: ServerProviderAntigravityStatus = {
-      account: {
-        email: account.email ?? null,
-        type: account.type ?? "Google / Antigravity CLI",
-        tier: account.label ?? "Standard",
-      },
-      cli: {
-        binaryPath: settings.binaryPath || "agy",
-        version: version ?? null,
-        installed: true,
-        status: "ready",
-        modelsCount: finalModels.length,
-      },
-    };
     return buildServerProvider({
       presentation: ANTIGRAVITY_PRESENTATION,
       enabled: settings.enabled,
